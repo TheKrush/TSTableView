@@ -86,7 +86,7 @@ namespace Tacticsoft
             float relativeScroll = 1 - newScrollValue.y;
             float scrollableHeight = m_contentParentView.rect.height - (this.transform as RectTransform).rect.height;
             m_scrollY = relativeScroll * scrollableHeight;
-            Debug.Log(m_scrollY.ToString(("0.00")));
+            //Debug.Log(m_scrollY.ToString(("0.00")));
             RefreshVisibleRows();
         }
 
@@ -164,7 +164,11 @@ namespace Tacticsoft
         {
             TableViewCell newCell = m_tableViewDataSource.GetCellForRowInTableView(this, row);
             newCell.transform.SetParent(m_contentParentView, false);
-            LayoutElement layoutElement = newCell.gameObject.AddComponent<LayoutElement>();
+
+            LayoutElement layoutElement = newCell.GetComponent<LayoutElement>();
+            if (layoutElement == null) {
+                layoutElement = newCell.gameObject.AddComponent<LayoutElement>();
+            }
             layoutElement.preferredHeight = m_rowHeights[row];
 
             if (atEnd) {
@@ -220,7 +224,7 @@ namespace Tacticsoft
 
         private void HideRow(bool last)
         {
-            Debug.Log("Hiding row at scroll y " + m_scrollY.ToString("0.00"));
+            //Debug.Log("Hiding row at scroll y " + m_scrollY.ToString("0.00"));
             if (last) {
                 StoreCellForReuse(m_visibleCells.Last.Value);
                 m_visibleCells.RemoveLast();
