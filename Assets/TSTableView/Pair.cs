@@ -5,6 +5,7 @@ using System.Text;
 
 namespace Tacticsoft
 {
+    [Serializable]
 	struct Pair<T>
 	{
         public T first;
