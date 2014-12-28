@@ -5,6 +5,10 @@ using System.Text;
 
 namespace Tacticsoft
 {
+    /// <summary>
+    /// A simple pair of values
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     [Serializable]
 	struct Pair<T>
 	{

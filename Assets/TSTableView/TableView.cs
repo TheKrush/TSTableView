@@ -4,6 +4,12 @@ using UnityEngine.UI;
 
 namespace Tacticsoft
 {
+    /// <summary>
+    /// A reusable table for for (vertical) tables. API inspired by Cocoa's UITableView
+    /// Hierarchy structure should be :
+    /// GameObject + TableView (this) + Mask + Scroll Rect (point to child)
+    /// - Child GameObject + Vertical Layout Group
+    /// </summary>
     public class TableView : MonoBehaviour
     {
         /// <summary>
@@ -12,7 +18,7 @@ namespace Tacticsoft
         public RectTransform m_contentParentView;
 
         /// <summary>
-        /// The data source that will feed this table view with information
+        /// The data source that will feed this table view with information. Required.
         /// </summary>
         public ITableViewDataSource tableViewDataSource
         {
@@ -25,8 +31,51 @@ namespace Tacticsoft
         /// Optional delegate that will receieve various events about the internals
         /// </summary>
         public ITableViewDelegate tableViewDelegate { get; set; }
-        private ITableViewDelegate m_tableViewDelegate;
-        
+
+        /// <summary>
+        /// Get a cell that is no longer in use for reusing
+        /// </summary>
+        /// <param name="reuseIdentifier">The identifier for the cell type</param>
+        /// <returns>A prepared cell if available, null if none</returns>
+        public TableViewCell GetReusableCell(string reuseIdentifier) {
+            LinkedList<TableViewCell> cells;
+            if (!m_reusableCells.TryGetValue(reuseIdentifier, out cells)) {
+                return null;
+            }
+            if (cells.Count == 0) {
+                return null;
+            }
+            TableViewCell cell = cells.First.Value;
+            cells.RemoveFirst();
+            return cell;
+        }
+
+        /// <summary>
+        /// Reload the table view. Manually call this if the data source changed in a way that alters the basic layout
+        /// (number of rows changed, etc)
+        /// </summary>
+        public void ReloadData() {
+            m_rowHeights = new float?[m_tableViewDataSource.GetNumberOfRowsForTableView(this)];
+            foreach (TableViewCell cell in m_visibleCells) {
+                Destroy(cell);
+            }
+            m_visibleCells.Clear();
+            m_visibleRowRange = new Pair<int>(-1, -1);
+            SetInitialVisibleRows();
+        }
+
+        /// <summary>
+        /// Event listener for the scroll rect scrolling.
+        /// Make sure this method is added as a callback to its "changed scroll" event
+        /// </summary>
+        /// <param name="newScrollValue"></param>
+        public void ScrollViewValueChanged(Vector2 newScrollValue) {
+            float relativeScroll = 1 - newScrollValue.y;
+            float scrollableHeight = m_contentParentView.rect.height - (this.transform as RectTransform).rect.height;
+            m_scrollY = relativeScroll * scrollableHeight;
+            Debug.Log(m_scrollY.ToString(("0.00")));
+            RefreshVisibleRows();
+        }
 
         private bool m_requiresReload;
 
@@ -34,9 +83,13 @@ namespace Tacticsoft
         private LayoutElement m_bottomPadding;
         
         private float?[] m_rowHeights;
+        private float?[] m_cumulativeRowHeights;
         private LinkedList<TableViewCell> m_visibleCells;
         private Pair<int> m_visibleRowRange;
         
+        private RectTransform m_reusableCellContainer;
+        private Dictionary<string, LinkedList<TableViewCell>> m_reusableCells;
+
         private float m_scrollY;
 
         void Start()
@@ -46,6 +99,11 @@ namespace Tacticsoft
             m_bottomPadding = CreateEmptyPaddingElement("Bottom");
             m_bottomPadding.transform.SetParent(m_contentParentView, false);
             m_visibleCells = new LinkedList<TableViewCell>();
+
+            m_reusableCellContainer = new GameObject("ReusableCells", typeof(RectTransform)).GetComponent<RectTransform>();
+            m_reusableCellContainer.SetParent(this.transform, false);
+            m_reusableCellContainer.gameObject.SetActive(false);
+            m_reusableCells = new Dictionary<string, LinkedList<TableViewCell>>();
         }
         
         void Update()
@@ -57,18 +115,7 @@ namespace Tacticsoft
             }
         }
 
-        public void ReloadData()
-        {
-            m_rowHeights = new float?[m_tableViewDataSource.GetNumberOfRowsForTableView(this)];
-            foreach (TableViewCell cell in m_visibleCells)
-            {
-                Destroy(cell);
-            }
-            m_visibleCells.Clear();
-            m_visibleRowRange = new Pair<int>(-1, -1);
-            SetInitialVisibleRows();
-        }
-
+        
         private Pair<int> CalculateCurrentVisibleRowRange()
         {
             float startY = m_scrollY;
@@ -106,12 +153,17 @@ namespace Tacticsoft
             newCell.transform.SetParent(m_contentParentView, false);
             LayoutElement layoutElement = newCell.gameObject.AddComponent<LayoutElement>();
             layoutElement.preferredHeight = m_rowHeights[row].Value;
+
             if (atEnd) {
                 m_visibleCells.AddLast(newCell);
                 newCell.transform.SetSiblingIndex(m_contentParentView.childCount - 2); //One before bottom padding
             } else {
                 m_visibleCells.AddFirst(newCell);
                 newCell.transform.SetSiblingIndex(1); //One after the top padding
+            }
+
+            if (this.tableViewDelegate != null) {
+                this.tableViewDelegate.TableViewWillDisplayCell(this, newCell);
             }
         }
 
@@ -157,10 +209,10 @@ namespace Tacticsoft
         {
             Debug.Log("Hiding row at scroll y " + m_scrollY.ToString("0.00"));
             if (last) {
-                GameObject.Destroy(m_visibleCells.Last.Value.gameObject);
+                StoreCellForReuse(m_visibleCells.Last.Value);
                 m_visibleCells.RemoveLast();
             } else {
-                GameObject.Destroy(m_visibleCells.First.Value.gameObject);
+                StoreCellForReuse(m_visibleCells.First.Value);
                 m_visibleCells.RemoveFirst();
             }
         }
@@ -174,20 +226,28 @@ namespace Tacticsoft
             return m_rowHeights[row].Value;
         }
 
-        public void ScrollViewValueChanged(Vector2 newScrollValue)
-        {
-            float relativeScroll = 1 - newScrollValue.y;
-            float scrollableHeight = m_contentParentView.rect.height - (this.transform as RectTransform).rect.height;
-            m_scrollY = relativeScroll * scrollableHeight;
-            Debug.Log(m_scrollY.ToString(("0.00")));
-            RefreshVisibleRows();
-        }
-
         private LayoutElement CreateEmptyPaddingElement(string name)
         {
             GameObject go = new GameObject(name, typeof(RectTransform), typeof(LayoutElement));
             LayoutElement le = go.GetComponent<LayoutElement>();
             return le;
+        }
+
+        
+
+        private void StoreCellForReuse(TableViewCell cell) {
+            string reuseIdentifier = cell.reuseIdentifier;
+            
+            if (string.IsNullOrEmpty(reuseIdentifier)) {
+                GameObject.Destroy(cell.gameObject);
+                return;
+            }
+
+            if (!m_reusableCells.ContainsKey(reuseIdentifier)) {
+                m_reusableCells.Add(reuseIdentifier, new LinkedList<TableViewCell>());
+            }
+            m_reusableCells[reuseIdentifier].AddLast(cell);
+            cell.transform.SetParent(m_reusableCellContainer, false);
         }
     }
 }
