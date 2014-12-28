@@ -55,13 +55,26 @@ namespace Tacticsoft
         /// (number of rows changed, etc)
         /// </summary>
         public void ReloadData() {
-            m_rowHeights = new float?[m_tableViewDataSource.GetNumberOfRowsForTableView(this)];
+            m_rowHeights = new float[m_tableViewDataSource.GetNumberOfRowsForTableView(this)];
+            m_cumulativeRowHeights = new float[m_rowHeights.Length];
+
+            for (int i = 0; i < m_rowHeights.Length; i++) {
+                m_rowHeights[i] = m_tableViewDataSource.GetHeightForRowInTableView(this, i);
+                if (i > 0) {
+                    m_cumulativeRowHeights[i] = m_rowHeights[i] + m_cumulativeRowHeights[i - 1];
+                } else {
+                    m_cumulativeRowHeights[i] = m_rowHeights[i];
+                }
+            }
+            m_contentParentView.sizeDelta = new Vector2(m_contentParentView.sizeDelta[0], m_cumulativeRowHeights[m_rowHeights.Length-1]);
+
             foreach (TableViewCell cell in m_visibleCells) {
                 Destroy(cell);
             }
             m_visibleCells.Clear();
             m_visibleRowRange = new Pair<int>(-1, -1);
             SetInitialVisibleRows();
+            m_requiresReload = false;
         }
 
         /// <summary>
@@ -82,8 +95,9 @@ namespace Tacticsoft
         private LayoutElement m_topPadding;
         private LayoutElement m_bottomPadding;
         
-        private float?[] m_rowHeights;
-        private float?[] m_cumulativeRowHeights;
+        private float[] m_rowHeights;
+        private float[] m_cumulativeRowHeights;
+
         private LinkedList<TableViewCell> m_visibleCells;
         private Pair<int> m_visibleRowRange;
         
@@ -92,7 +106,7 @@ namespace Tacticsoft
 
         private float m_scrollY;
 
-        void Start()
+        void Awake()
         {
             m_topPadding = CreateEmptyPaddingElement("TopPadding");
             m_topPadding.transform.SetParent(m_contentParentView, false);
@@ -111,7 +125,6 @@ namespace Tacticsoft
             if (m_requiresReload)
             {
                 ReloadData();
-                m_requiresReload = false;
             }
         }
 
@@ -123,9 +136,9 @@ namespace Tacticsoft
             float cumulativeHeight = 0;
             int curRow = 0;
             int firstVisibleRow = -1;
-            while (cumulativeHeight < endY)
+            while (cumulativeHeight < endY && curRow < m_rowHeights.Length)
             {
-                cumulativeHeight += GetHeightForRow(curRow);
+                cumulativeHeight += m_rowHeights[curRow];
                 if (cumulativeHeight >= startY && firstVisibleRow == -1)
                 {
                     firstVisibleRow = curRow;
@@ -152,7 +165,7 @@ namespace Tacticsoft
             TableViewCell newCell = m_tableViewDataSource.GetCellForRowInTableView(this, row);
             newCell.transform.SetParent(m_contentParentView, false);
             LayoutElement layoutElement = newCell.gameObject.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = m_rowHeights[row].Value;
+            layoutElement.preferredHeight = m_rowHeights[row];
 
             if (atEnd) {
                 m_visibleCells.AddLast(newCell);
@@ -195,11 +208,11 @@ namespace Tacticsoft
         private void UpdatePaddingElements() {
             float hiddenElementsHeightSum = 0;
             for (int i = 0; i < m_visibleRowRange.first; i++) {
-                hiddenElementsHeightSum += GetHeightForRow(i);
+                hiddenElementsHeightSum += m_rowHeights[i];
             }
             m_topPadding.preferredHeight = hiddenElementsHeightSum;
             for (int i = m_visibleRowRange.first; i <= m_visibleRowRange.second; i++) {
-                hiddenElementsHeightSum += GetHeightForRow(i);
+                hiddenElementsHeightSum += m_rowHeights[i];
             }
             float bottomPaddingHeight = m_contentParentView.rect.height - hiddenElementsHeightSum;
             m_bottomPadding.preferredHeight = bottomPaddingHeight;
@@ -215,15 +228,6 @@ namespace Tacticsoft
                 StoreCellForReuse(m_visibleCells.First.Value);
                 m_visibleCells.RemoveFirst();
             }
-        }
-
-        private float GetHeightForRow(int row)
-        {
-            if (!m_rowHeights[row].HasValue)
-            {
-                m_rowHeights[row] = m_tableViewDataSource.GetHeightForRowInTableView(this, row);
-            }
-            return m_rowHeights[row].Value;
         }
 
         private LayoutElement CreateEmptyPaddingElement(string name)
