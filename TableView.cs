@@ -68,8 +68,8 @@ namespace Tacticsoft
             }
             m_contentParentView.sizeDelta = new Vector2(m_contentParentView.sizeDelta[0], m_cumulativeRowHeights[m_rowHeights.Length-1]);
 
-            foreach (TableViewCell cell in m_visibleCells) {
-                Destroy(cell);
+            while (m_visibleCells.Count > 0) {
+                HideRow(false);
             }
             m_visibleCells.Clear();
             m_visibleRowRange = new Pair<int>(-1, -1);
