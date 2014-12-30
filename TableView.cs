@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.UI;
+using UnityEngine.Events;
+using UnityEngine.SocialPlatforms;
 
 namespace Tacticsoft
 {
@@ -20,17 +22,20 @@ namespace Tacticsoft
         /// <summary>
         /// The data source that will feed this table view with information. Required.
         /// </summary>
-        public ITableViewDataSource tableViewDataSource
+        public ITableViewDataSource dataSource
         {
-            get { return m_tableViewDataSource; }
-            set { m_tableViewDataSource = value; m_requiresReload = true; }
+            get { return m_dataSource; }
+            set { m_dataSource = value; m_requiresReload = true; }
         }
-        private ITableViewDataSource m_tableViewDataSource;
+        private ITableViewDataSource m_dataSource;
 
+        [System.Serializable]
+        public class CellVisibilityChangeEvent : UnityEvent<int, bool> { }
         /// <summary>
-        /// Optional delegate that will receieve various events about the internals
+        /// This event will be called when a cell's visibility changes
+        /// First param (int) is the row index, second param (bool) is whether or not it is visible
         /// </summary>
-        public ITableViewDelegate tableViewDelegate { get; set; }
+        public CellVisibilityChangeEvent onCellVisibilityChanged;
 
         /// <summary>
         /// Get a cell that is no longer in use for reusing
@@ -55,11 +60,11 @@ namespace Tacticsoft
         /// (number of rows changed, etc)
         /// </summary>
         public void ReloadData() {
-            m_rowHeights = new float[m_tableViewDataSource.GetNumberOfRowsForTableView(this)];
+            m_rowHeights = new float[m_dataSource.GetNumberOfRowsForTableView(this)];
             m_cumulativeRowHeights = new float[m_rowHeights.Length];
 
             for (int i = 0; i < m_rowHeights.Length; i++) {
-                m_rowHeights[i] = m_tableViewDataSource.GetHeightForRowInTableView(this, i);
+                m_rowHeights[i] = m_dataSource.GetHeightForRowInTableView(this, i);
                 if (i > 0) {
                     m_cumulativeRowHeights[i] = m_rowHeights[i] + m_cumulativeRowHeights[i - 1];
                 } else {
@@ -72,9 +77,26 @@ namespace Tacticsoft
                 HideRow(false);
             }
             m_visibleCells.Clear();
-            m_visibleRowRange = new Pair<int>(-1, -1);
+            m_visibleRowRange = new Range(0,0);
             SetInitialVisibleRows();
             m_requiresReload = false;
+        }
+
+        /// <summary>
+        /// Get cell at a specific row (if active). Returns null if not.
+        /// </summary>
+        public TableViewCell GetCellAtRow(int row)
+        {
+            TableViewCell retVal = null;
+            m_visibleCells.TryGetValue(row, out retVal);
+            return retVal;
+        }
+
+        /// <summary>
+        /// Get the range of the currently visible rows
+        /// </summary>
+        public Range visibleRowRange {
+            get { return m_visibleRowRange; }
         }
 
         /// <summary>
@@ -98,8 +120,8 @@ namespace Tacticsoft
         private float[] m_rowHeights;
         private float[] m_cumulativeRowHeights;
 
-        private LinkedList<TableViewCell> m_visibleCells;
-        private Pair<int> m_visibleRowRange;
+        private Dictionary<int, TableViewCell> m_visibleCells;
+        private Range m_visibleRowRange;
         
         private RectTransform m_reusableCellContainer;
         private Dictionary<string, LinkedList<TableViewCell>> m_reusableCells;
@@ -108,11 +130,12 @@ namespace Tacticsoft
 
         void Awake()
         {
+            
             m_topPadding = CreateEmptyPaddingElement("TopPadding");
             m_topPadding.transform.SetParent(m_contentParentView, false);
             m_bottomPadding = CreateEmptyPaddingElement("Bottom");
             m_bottomPadding.transform.SetParent(m_contentParentView, false);
-            m_visibleCells = new LinkedList<TableViewCell>();
+            m_visibleCells = new Dictionary<int, TableViewCell>();
 
             m_reusableCellContainer = new GameObject("ReusableCells", typeof(RectTransform)).GetComponent<RectTransform>();
             m_reusableCellContainer.SetParent(this.transform, false);
@@ -129,7 +152,7 @@ namespace Tacticsoft
         }
 
         
-        private Pair<int> CalculateCurrentVisibleRowRange()
+        private Range CalculateCurrentVisibleRowRange()
         {
             float startY = m_scrollY;
             float endY = m_scrollY + (this.transform as RectTransform).rect.height;
@@ -146,15 +169,15 @@ namespace Tacticsoft
                 curRow++;
             }
             int lastVisibleRow = curRow;
-            return new Pair<int>(firstVisibleRow, lastVisibleRow-1);
+            return new Range(firstVisibleRow, lastVisibleRow-firstVisibleRow);
         }
 
         private void SetInitialVisibleRows()
         {
-            Pair<int> visibleRows = CalculateCurrentVisibleRowRange();
-            for (int i = visibleRows.first; i <= visibleRows.second; i++)
+            Range visibleRows = CalculateCurrentVisibleRowRange();
+            for (int i = 0; i <= visibleRows.count; i++)
             {
-                AddRow(i, true);
+                AddRow(visibleRows.from + i, true);
             }
             m_visibleRowRange = visibleRows;
             UpdatePaddingElements();
@@ -162,7 +185,11 @@ namespace Tacticsoft
 
         private void AddRow(int row, bool atEnd)
         {
-            TableViewCell newCell = m_tableViewDataSource.GetCellForRowInTableView(this, row);
+            if (row > m_rowHeights.Length)
+            {
+                Debug.DebugBreak();
+            }
+            TableViewCell newCell = m_dataSource.GetCellForRowInTableView(this, row);
             newCell.transform.SetParent(m_contentParentView, false);
 
             LayoutElement layoutElement = newCell.GetComponent<LayoutElement>();
@@ -170,39 +197,37 @@ namespace Tacticsoft
                 layoutElement = newCell.gameObject.AddComponent<LayoutElement>();
             }
             layoutElement.preferredHeight = m_rowHeights[row];
-
+            
+            m_visibleCells[row] = newCell;
             if (atEnd) {
-                m_visibleCells.AddLast(newCell);
                 newCell.transform.SetSiblingIndex(m_contentParentView.childCount - 2); //One before bottom padding
             } else {
-                m_visibleCells.AddFirst(newCell);
                 newCell.transform.SetSiblingIndex(1); //One after the top padding
             }
-
-            if (this.tableViewDelegate != null) {
-                this.tableViewDelegate.TableViewWillDisplayCell(this, newCell);
-            }
+            this.onCellVisibilityChanged.Invoke(row, true);
         }
 
         private void RefreshVisibleRows()
         {
-            Pair<int> newVisibleRows = CalculateCurrentVisibleRowRange();
+            Range newVisibleRows = CalculateCurrentVisibleRowRange();
+            int oldTo = m_visibleRowRange.Last();
+            int newTo = newVisibleRows.Last();
             //Remove rows that disappeared to the top
-            for (int i = m_visibleRowRange.first; i < newVisibleRows.first; i++)
+            for (int i = m_visibleRowRange.from; i < newVisibleRows.from; i++)
             {
                 HideRow(false);
             }
             //Remove rows that disappeared to the bottom
-            for (int i = newVisibleRows.second; i < m_visibleRowRange.second; i++)
+            for (int i = newTo; i < oldTo; i++)
             {
                 HideRow(true);
             }
             //Add rows that appeared on top
-            for (int i = newVisibleRows.first; i < m_visibleRowRange.first; i++) {
+            for (int i = newVisibleRows.from; i < m_visibleRowRange.from; i++) {
                 AddRow(i, false);
             }
             //Add rows that appeared on bottom
-            for (int i = m_visibleRowRange.second + 1; i <= newVisibleRows.second; i++) {
+            for (int i = oldTo + 1; i <= newTo; i++) {
                 AddRow(i, true);
             }
             m_visibleRowRange = newVisibleRows;
@@ -211,11 +236,11 @@ namespace Tacticsoft
 
         private void UpdatePaddingElements() {
             float hiddenElementsHeightSum = 0;
-            for (int i = 0; i < m_visibleRowRange.first; i++) {
+            for (int i = 0; i < m_visibleRowRange.from; i++) {
                 hiddenElementsHeightSum += m_rowHeights[i];
             }
             m_topPadding.preferredHeight = hiddenElementsHeightSum;
-            for (int i = m_visibleRowRange.first; i <= m_visibleRowRange.second; i++) {
+            for (int i = m_visibleRowRange.from; i <= m_visibleRowRange.Last(); i++) {
                 hiddenElementsHeightSum += m_rowHeights[i];
             }
             float bottomPaddingHeight = m_contentParentView.rect.height - hiddenElementsHeightSum;
@@ -225,13 +250,16 @@ namespace Tacticsoft
         private void HideRow(bool last)
         {
             //Debug.Log("Hiding row at scroll y " + m_scrollY.ToString("0.00"));
-            if (last) {
-                StoreCellForReuse(m_visibleCells.Last.Value);
-                m_visibleCells.RemoveLast();
-            } else {
-                StoreCellForReuse(m_visibleCells.First.Value);
-                m_visibleCells.RemoveFirst();
-            }
+
+            int row = last ? m_visibleRowRange.Last() : m_visibleRowRange.from;
+            TableViewCell removedCell = m_visibleCells[row];
+            StoreCellForReuse(removedCell);
+            m_visibleCells.Remove(row);
+            m_visibleRowRange.count -= 1;
+            if (!last) {
+                m_visibleRowRange.from += 1;
+            } 
+            this.onCellVisibilityChanged.Invoke(row, false);
         }
 
         private LayoutElement CreateEmptyPaddingElement(string name)
@@ -256,6 +284,20 @@ namespace Tacticsoft
             }
             m_reusableCells[reuseIdentifier].AddLast(cell);
             cell.transform.SetParent(m_reusableCellContainer, false);
+        }
+
+        
+    }
+
+    internal static class RangeExtensions
+    {
+        public static int Last(this Range range)
+        {
+            if (range.count == 0)
+            {
+                throw new System.InvalidOperationException("Empty range has no to()");
+            }
+            return (range.from + range.count - 1);
         }
     }
 }

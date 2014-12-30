@@ -5,18 +5,18 @@ using Tacticsoft;
 namespace Tacticsoft.Examples
 {
     //An example implementation of a class that communicates with a TableView
-    public class SimpleTableViewController : MonoBehaviour, ITableViewDataSource, ITableViewDelegate
+    public class SimpleTableViewController : MonoBehaviour, ITableViewDataSource
     {
         public VisibleCounterCell m_cellPrefab;
         public TableView m_tableView;
 
         public int m_numRows;
+        private int m_numInstancesCreated = 0;
 
         //Register as the TableView's delegate (required) and data source (optional)
         //to receive the calls
         void Start() {
-            m_tableView.tableViewDelegate = this;
-            m_tableView.tableViewDataSource = this;
+            m_tableView.dataSource = this;
         }
 
         public void SendBeer() {
@@ -40,21 +40,23 @@ namespace Tacticsoft.Examples
             VisibleCounterCell cell = tableView.GetReusableCell(m_cellPrefab.reuseIdentifier) as VisibleCounterCell;
             if (cell == null) {
                 cell = (VisibleCounterCell)GameObject.Instantiate(m_cellPrefab);
+                cell.name = "VisibleCounterCellInstance_" + (++m_numInstancesCreated).ToString();
             }
             cell.SetRowNumber(row);
-            cell.gameObject.name = "Row_" + row.ToString();
             return cell;
         }
 
         #endregion
 
-        #region ITableViewDelegate
+        #region Table View event handlers
 
-        //Will be called by the TableView when a cell is about to be displayed (after it has
-        //been positioned in the hierarchy)
-        public void TableViewWillDisplayCell(TableView tableView, TableViewCell cell) {
-            VisibleCounterCell counterLabel = (VisibleCounterCell)cell;
-            counterLabel.NotifyBecameVisible();
+        //Will be called by the TableView when a cell's visibility changed
+        public void TableViewCellVisibilityChanged(int row, bool isVisible) {
+            Debug.Log(string.Format("Row {0} visibility changed to {1}", row, isVisible));
+            if (isVisible) {
+                VisibleCounterCell cell = (VisibleCounterCell)m_tableView.GetCellAtRow(row);
+                cell.NotifyBecameVisible();
+            }
         }
 
         #endregion

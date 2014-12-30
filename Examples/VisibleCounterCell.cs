@@ -16,10 +16,10 @@ namespace Tacticsoft.Examples
             m_rowNumberText.text = "Row " + rowNumber.ToString();
         }
 
-        private int m_numTimesVisible;
+        private int m_numTimesBecameVisible;
         public void NotifyBecameVisible() {
-            m_numTimesVisible++;
-            m_visibleCountText.text = "# rows this cell showed : " + m_numTimesVisible.ToString();
+            m_numTimesBecameVisible++;
+            m_visibleCountText.text = "# rows this cell showed : " + m_numTimesBecameVisible.ToString();
         }
 
     }

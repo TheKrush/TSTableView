@@ -779,6 +779,10 @@ Prefab:
   m_Modification:
     m_TransformParent: {fileID: 794866487}
     m_Modifications:
+    - target: {fileID: 11492702, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
+      propertyPath: onCellVisibilityChanged.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 22492706, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -854,6 +858,26 @@ Prefab:
     - target: {fileID: 192706, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
       propertyPath: m_Name
       value: TableView
+      objectReference: {fileID: 0}
+    - target: {fileID: 11492702, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
+      propertyPath: onCellVisibilityChanged.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 11492702, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
+      propertyPath: onCellVisibilityChanged.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 11492702, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
+      propertyPath: onCellVisibilityChanged.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1803694767}
+    - target: {fileID: 11492702, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
+      propertyPath: onCellVisibilityChanged.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: TableViewCellVisibilityChanged
+      objectReference: {fileID: 0}
+    - target: {fileID: 11492702, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
+      propertyPath: onCellVisibilityChanged.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: de9c2ec912e8f2d4cae1a7a05f83655a, type: 2}
@@ -954,6 +978,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_contentParentView: {fileID: 1105401475}
+  onCellVisibilityChanged:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1803694767}
+        m_MethodName: TableViewCellVisibilityChanged
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine, Version=0.0.0.0,
+            Culture=neutral, PublicKeyToken=null
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+    m_TypeName: Tacticsoft.TableView+CellVisibilityChangeEvent, Assembly-CSharp, Version=0.0.0.0,
+      Culture=neutral, PublicKeyToken=null
 --- !u!114 &1552103549
 MonoBehaviour:
   m_ObjectHideFlags: 0
