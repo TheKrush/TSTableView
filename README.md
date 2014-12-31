@@ -18,6 +18,7 @@ TSTableView is a plugin for Unity 4.6's new UI system that implements a Table wi
 
 * If you would like to get a standalone Unity project of this component, consider cloning [TSTableViewPackage](https://bitbucket.org/tacticsoft/tstableviewpackage) instead. Don't forget to update submodules for the code itself to be included.
 * This repository contains just the code assets, so you can submodule / clone it directly into a directory of choice in your unity Assets directory.
+* You can also [download](https://bitbucket.org/tacticsoft/tstableview/downloads) the sources and place them in your project.
 * Open the Examples directory to see example uses of the component.
 
 ### Code Tutorial ###
