@@ -62,16 +62,13 @@ namespace Tacticsoft
         public void ReloadData() {
             m_rowHeights = new float[m_dataSource.GetNumberOfRowsForTableView(this)];
             m_cumulativeRowHeights = new float[m_rowHeights.Length];
+            m_cleanCumulativeIndex = -1;
 
             for (int i = 0; i < m_rowHeights.Length; i++) {
                 m_rowHeights[i] = m_dataSource.GetHeightForRowInTableView(this, i);
-                if (i > 0) {
-                    m_cumulativeRowHeights[i] = m_rowHeights[i] + m_cumulativeRowHeights[i - 1];
-                } else {
-                    m_cumulativeRowHeights[i] = m_rowHeights[i];
-                }
             }
-            m_contentParentView.sizeDelta = new Vector2(m_contentParentView.sizeDelta[0], m_cumulativeRowHeights[m_rowHeights.Length-1]);
+            
+            m_contentParentView.sizeDelta = new Vector2(m_contentParentView.sizeDelta[0], GetCumulativeRowHeight(m_rowHeights.Length-1));
 
             while (m_visibleCells.Count > 0) {
                 HideRow(false);
@@ -118,7 +115,9 @@ namespace Tacticsoft
         private LayoutElement m_bottomPadding;
         
         private float[] m_rowHeights;
+        //cumulative[i] = sum(rowHeights[j] for 0 <= j <= i)
         private float[] m_cumulativeRowHeights;
+        private int m_cleanCumulativeIndex;
 
         private Dictionary<int, TableViewCell> m_visibleCells;
         private Range m_visibleRowRange;
@@ -156,20 +155,9 @@ namespace Tacticsoft
         {
             float startY = m_scrollY;
             float endY = m_scrollY + (this.transform as RectTransform).rect.height;
-            float cumulativeHeight = 0;
-            int curRow = 0;
-            int firstVisibleRow = -1;
-            while (cumulativeHeight < endY && curRow < m_rowHeights.Length)
-            {
-                cumulativeHeight += m_rowHeights[curRow];
-                if (cumulativeHeight >= startY && firstVisibleRow == -1)
-                {
-                    firstVisibleRow = curRow;
-                }
-                curRow++;
-            }
-            int lastVisibleRow = curRow;
-            return new Range(firstVisibleRow, lastVisibleRow-firstVisibleRow);
+            int startIndex = FindIndexOfRowAtY(startY);
+            int endIndex = FindIndexOfRowAtY(endY);
+            return new Range(startIndex, endIndex - startIndex + 1);
         }
 
         private void SetInitialVisibleRows()
@@ -269,7 +257,34 @@ namespace Tacticsoft
             return le;
         }
 
-        
+        private int FindIndexOfRowAtY(float y) {
+            //TODO : Binary search if inside clean cumulative row height area, else walk until found.
+            return FindIndexOfRowAtY(y, 0, m_cumulativeRowHeights.Length - 1);
+        }
+
+        private int FindIndexOfRowAtY(float y, int startIndex, int endIndex) {
+            if (startIndex >= endIndex) {
+                return startIndex;
+            }
+            int midIndex = (startIndex + endIndex) / 2;
+            if (GetCumulativeRowHeight(midIndex) >= y) {
+                return FindIndexOfRowAtY(y, startIndex, midIndex);
+            } else {
+                return FindIndexOfRowAtY(y, midIndex + 1, endIndex);
+            }
+        }
+
+        private float GetCumulativeRowHeight(int row) {
+            while (m_cleanCumulativeIndex < row) {
+                m_cleanCumulativeIndex++;
+                //Debug.Log("Cumulative index : " + m_cleanCumulativeIndex.ToString());
+                m_cumulativeRowHeights[m_cleanCumulativeIndex] = m_rowHeights[m_cleanCumulativeIndex];
+                if (m_cleanCumulativeIndex > 0) {
+                    m_cumulativeRowHeights[m_cleanCumulativeIndex] += m_cumulativeRowHeights[m_cleanCumulativeIndex - 1];
+                } 
+            }
+            return m_cumulativeRowHeights[row];
+        }
 
         private void StoreCellForReuse(TableViewCell cell) {
             string reuseIdentifier = cell.reuseIdentifier;
