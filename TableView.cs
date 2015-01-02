@@ -13,13 +13,11 @@ namespace Tacticsoft
     /// - Child GameObject + Vertical Layout Group
     /// This class should be after Unity's internal UI components in the Script Execution Order
     /// </summary>
+    [RequireComponent(typeof(ScrollRect))]
     public class TableView : MonoBehaviour
     {
-        /// <summary>
-        /// The view that will contain the cell views. Usually a child of the view this behavior is attached to
-        /// </summary>
-        public RectTransform m_contentParentView;
 
+        #region Public API
         /// <summary>
         /// The data source that will feed this table view with information. Required.
         /// </summary>
@@ -28,8 +26,7 @@ namespace Tacticsoft
             get { return m_dataSource; }
             set { m_dataSource = value; m_requiresReload = true; }
         }
-        private ITableViewDataSource m_dataSource;
-
+        
         [System.Serializable]
         public class CellVisibilityChangeEvent : UnityEvent<int, bool> { }
         /// <summary>
@@ -68,15 +65,11 @@ namespace Tacticsoft
             for (int i = 0; i < m_rowHeights.Length; i++) {
                 m_rowHeights[i] = m_dataSource.GetHeightForRowInTableView(this, i);
             }
-            
-            m_contentParentView.sizeDelta = new Vector2(m_contentParentView.sizeDelta[0], GetCumulativeRowHeight(m_rowHeights.Length-1));
 
-            while (m_visibleCells.Count > 0) {
-                HideRow(false);
-            }
-            m_visibleCells.Clear();
-            m_visibleRowRange = new Range(0,0);
-            SetInitialVisibleRows();
+            m_scrollRect.content.sizeDelta = new Vector2(m_scrollRect.content.sizeDelta[0], 
+                GetCumulativeRowHeight(m_rowHeights.Length - 1));
+
+            RecalculateVisibleRowsFromScratch();
             m_requiresReload = false;
         }
 
@@ -109,29 +102,63 @@ namespace Tacticsoft
                 cell.GetComponent<LayoutElement>().preferredHeight = m_rowHeights[row];
             }
             float heightDelta = m_rowHeights[row] - oldHeight;
-            m_contentParentView.sizeDelta = new Vector2(m_contentParentView.sizeDelta.x, 
-                m_contentParentView.sizeDelta.y + heightDelta);
+            m_scrollRect.content.sizeDelta = new Vector2(m_scrollRect.content.sizeDelta.x,
+                m_scrollRect.content.sizeDelta.y + heightDelta);
             m_requiresRefresh = true;
         }
 
         /// <summary>
-        /// Event listener for the scroll rect scrolling.
-        /// Make sure this method is added as a callback to its "changed scroll" event
+        /// Get the maximum scrollable height of the table. scrollY property will never be more than this.
         /// </summary>
-        /// <param name="newScrollValue"></param>
-        public void ScrollViewValueChanged(Vector2 newScrollValue) {
-            float relativeScroll = 1 - newScrollValue.y;
-            float scrollableHeight = m_contentParentView.rect.height - (this.transform as RectTransform).rect.height;
-            m_scrollY = relativeScroll * scrollableHeight;
-            m_requiresRefresh = true;
-            //Debug.Log(m_scrollY.ToString(("0.00")));
+        public float scrollableHeight {
+            get {
+                return m_scrollRect.content.rect.height - (this.transform as RectTransform).rect.height;
+            }
         }
 
+        /// <summary>
+        /// Get or set the current scrolling position of the table
+        /// </summary>
+        public float scrollY {
+            get {
+                return m_scrollY;
+            }
+            set {
+                value = Mathf.Clamp(value, 0, GetScrollYForRow(m_rowHeights.Length - 1, true));
+                if (m_scrollY != value) {
+                    m_scrollY = value;
+                    m_requiresRefresh = true;
+                    float relativeScroll = value / this.scrollableHeight;
+                    m_scrollRect.verticalNormalizedPosition = 1 - relativeScroll;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get the y that the table would need to scroll to to have a certain row at the top
+        /// </summary>
+        /// <param name="row">The desired row</param>
+        /// <param name="above">Should the top of the table be above the row or below the row?</param>
+        /// <returns>The y position to scroll to, can be used with scrollY property</returns>
+        public float GetScrollYForRow(int row, bool above) {
+            float retVal = GetCumulativeRowHeight(row);
+            if (above) {
+                retVal -= m_rowHeights[row];
+            }
+            return retVal;
+        }
+
+        #endregion
+
+        #region Private implementation
+
+        private ITableViewDataSource m_dataSource;
         private bool m_requiresReload;
 
+        private ScrollRect m_scrollRect;
         private LayoutElement m_topPadding;
         private LayoutElement m_bottomPadding;
-        
+
         private float[] m_rowHeights;
         //cumulative[i] = sum(rowHeights[j] for 0 <= j <= i)
         private float[] m_cumulativeRowHeights;
@@ -139,20 +166,36 @@ namespace Tacticsoft
 
         private Dictionary<int, TableViewCell> m_visibleCells;
         private Range m_visibleRowRange;
-        
+
         private RectTransform m_reusableCellContainer;
         private Dictionary<string, LinkedList<TableViewCell>> m_reusableCells;
 
         private float m_scrollY;
+
         private bool m_requiresRefresh;
+
+        private void ScrollViewValueChanged(Vector2 newScrollValue) {
+            float relativeScroll = 1 - newScrollValue.y;
+            m_scrollY = relativeScroll * scrollableHeight;
+            m_requiresRefresh = true;
+            //Debug.Log(m_scrollY.ToString(("0.00")));
+        }
+
+        private void RecalculateVisibleRowsFromScratch() {
+            while (m_visibleCells.Count > 0) {
+                HideRow(false);
+            }
+            m_visibleRowRange = new Range(0, 0);
+            SetInitialVisibleRows();
+        }
 
         void Awake()
         {
-            
+            m_scrollRect = GetComponent<ScrollRect>();
             m_topPadding = CreateEmptyPaddingElement("TopPadding");
-            m_topPadding.transform.SetParent(m_contentParentView, false);
+            m_topPadding.transform.SetParent(m_scrollRect.content, false);
             m_bottomPadding = CreateEmptyPaddingElement("Bottom");
-            m_bottomPadding.transform.SetParent(m_contentParentView, false);
+            m_bottomPadding.transform.SetParent(m_scrollRect.content, false);
             m_visibleCells = new Dictionary<int, TableViewCell>();
 
             m_reusableCellContainer = new GameObject("ReusableCells", typeof(RectTransform)).GetComponent<RectTransform>();
@@ -174,6 +217,13 @@ namespace Tacticsoft
             }
         }
 
+        void OnEnable() {
+            m_scrollRect.onValueChanged.AddListener(ScrollViewValueChanged);
+        }
+
+        void OnDisable() {
+            m_scrollRect.onValueChanged.RemoveListener(ScrollViewValueChanged);
+        }
         
         private Range CalculateCurrentVisibleRowRange()
         {
@@ -202,7 +252,7 @@ namespace Tacticsoft
                 Debug.DebugBreak();
             }
             TableViewCell newCell = m_dataSource.GetCellForRowInTableView(this, row);
-            newCell.transform.SetParent(m_contentParentView, false);
+            newCell.transform.SetParent(m_scrollRect.content, false);
 
             LayoutElement layoutElement = newCell.GetComponent<LayoutElement>();
             if (layoutElement == null) {
@@ -212,7 +262,7 @@ namespace Tacticsoft
             
             m_visibleCells[row] = newCell;
             if (atEnd) {
-                newCell.transform.SetSiblingIndex(m_contentParentView.childCount - 2); //One before bottom padding
+                newCell.transform.SetSiblingIndex(m_scrollRect.content.childCount - 2); //One before bottom padding
             } else {
                 newCell.transform.SetSiblingIndex(1); //One after the top padding
             }
@@ -224,6 +274,14 @@ namespace Tacticsoft
             Range newVisibleRows = CalculateCurrentVisibleRowRange();
             int oldTo = m_visibleRowRange.Last();
             int newTo = newVisibleRows.Last();
+
+            if (newVisibleRows.from > oldTo || newTo < m_visibleRowRange.from) {
+                //We jumped to a completely different segment this frame, destroy all and recreate
+				RecalculateVisibleRowsFromScratch();
+                m_requiresRefresh = false;
+                return;
+            }
+
             //Remove rows that disappeared to the top
             for (int i = m_visibleRowRange.from; i < newVisibleRows.from; i++)
             {
@@ -256,7 +314,7 @@ namespace Tacticsoft
             for (int i = m_visibleRowRange.from; i <= m_visibleRowRange.Last(); i++) {
                 hiddenElementsHeightSum += m_rowHeights[i];
             }
-            float bottomPaddingHeight = m_contentParentView.rect.height - hiddenElementsHeightSum;
+            float bottomPaddingHeight = m_scrollRect.content.rect.height - hiddenElementsHeightSum;
             m_bottomPadding.preferredHeight = bottomPaddingHeight;
         }
 
@@ -326,7 +384,8 @@ namespace Tacticsoft
             cell.transform.SetParent(m_reusableCellContainer, false);
         }
 
-        
+        #endregion
+
     }
 
     internal static class RangeExtensions

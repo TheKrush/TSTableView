@@ -31,7 +31,6 @@ TSTableView is a plugin for Unity 4.6's new UI system that implements a Table wi
 ### Missing features ###
 
 * Currently only vertical tables are supported, with one item per row
-* External scrolling is not yet supported / tested
 * Performance can be better, but is already good enough for thousands of rows.
 
 ### Contribution guidelines ###
