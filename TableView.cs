@@ -11,6 +11,7 @@ namespace Tacticsoft
     /// Hierarchy structure should be :
     /// GameObject + TableView (this) + Mask + Scroll Rect (point to child)
     /// - Child GameObject + Vertical Layout Group
+    /// This class should be after Unity's internal UI components in the Script Execution Order
     /// </summary>
     public class TableView : MonoBehaviour
     {
@@ -97,6 +98,23 @@ namespace Tacticsoft
         }
 
         /// <summary>
+        /// Notify the table view that one of its rows changed size
+        /// </summary>
+        public void NotifyCellDimensionsChanged(int row) {
+            float oldHeight = m_rowHeights[row];
+            m_rowHeights[row] = m_dataSource.GetHeightForRowInTableView(this, row);
+            m_cleanCumulativeIndex = Mathf.Min(m_cleanCumulativeIndex, row - 1);
+            if (m_visibleRowRange.Contains(row)) {
+                TableViewCell cell = GetCellAtRow(row);
+                cell.GetComponent<LayoutElement>().preferredHeight = m_rowHeights[row];
+            }
+            float heightDelta = m_rowHeights[row] - oldHeight;
+            m_contentParentView.sizeDelta = new Vector2(m_contentParentView.sizeDelta.x, 
+                m_contentParentView.sizeDelta.y + heightDelta);
+            m_requiresRefresh = true;
+        }
+
+        /// <summary>
         /// Event listener for the scroll rect scrolling.
         /// Make sure this method is added as a callback to its "changed scroll" event
         /// </summary>
@@ -105,8 +123,8 @@ namespace Tacticsoft
             float relativeScroll = 1 - newScrollValue.y;
             float scrollableHeight = m_contentParentView.rect.height - (this.transform as RectTransform).rect.height;
             m_scrollY = relativeScroll * scrollableHeight;
+            m_requiresRefresh = true;
             //Debug.Log(m_scrollY.ToString(("0.00")));
-            RefreshVisibleRows();
         }
 
         private bool m_requiresReload;
@@ -126,6 +144,7 @@ namespace Tacticsoft
         private Dictionary<string, LinkedList<TableViewCell>> m_reusableCells;
 
         private float m_scrollY;
+        private bool m_requiresRefresh;
 
         void Awake()
         {
@@ -144,9 +163,14 @@ namespace Tacticsoft
         
         void Update()
         {
-            if (m_requiresReload)
-            {
+            if (m_requiresReload) {
                 ReloadData();
+            }
+        }
+
+        void LateUpdate() {
+            if (m_requiresRefresh) {
+                RefreshVisibleRows();
             }
         }
 
@@ -163,7 +187,7 @@ namespace Tacticsoft
         private void SetInitialVisibleRows()
         {
             Range visibleRows = CalculateCurrentVisibleRowRange();
-            for (int i = 0; i <= visibleRows.count; i++)
+            for (int i = 0; i < visibleRows.count; i++)
             {
                 AddRow(visibleRows.from + i, true);
             }
@@ -220,6 +244,7 @@ namespace Tacticsoft
             }
             m_visibleRowRange = newVisibleRows;
             UpdatePaddingElements();
+            m_requiresRefresh = false;
         }
 
         private void UpdatePaddingElements() {
@@ -313,6 +338,10 @@ namespace Tacticsoft
                 throw new System.InvalidOperationException("Empty range has no to()");
             }
             return (range.from + range.count - 1);
+        }
+
+        public static bool Contains(this Range range, int num) {
+            return num >= range.from && num < (range.from + range.count);
         }
     }
 }

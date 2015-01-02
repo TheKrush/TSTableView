@@ -26,12 +26,12 @@ TSTableView is a plugin for Unity 4.6's new UI system that implements a Table wi
 * The main component introduced is the *TableView* component. The rows inside the table view are created programmatically by the data source which creates generates *TableViewCells* when asked.
 * The intended usage of this component is to implement *ITableViewDataSource* with one behavior (the controller), and subclass *TableViewCell* (the view). It makes sense to create a prefab of the game object hierarchy containing the *TableViewCell* and instantiate that from the *GetCellForRowInTableView* call. Make sure to check for reusable cells before instantiating again.
 * The TableView component assumes a certain hierarchy structure, see the *TableView Template* prefab for details.
+* *TableView* should be placed later than "Default" in Script Execution Order
 
 ### Missing features ###
 
 * Currently only vertical tables are supported, with one item per row
 * External scrolling is not yet supported / tested
-* Rows cannot be resized yet.
 * Performance can be better, but is already good enough for thousands of rows.
 
 ### Contribution guidelines ###
