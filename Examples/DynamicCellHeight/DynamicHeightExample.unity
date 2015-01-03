@@ -977,7 +977,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a7de34a4ce5e68488499cbe778ad79d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_scrollRect: {fileID: 1552103549}
   onCellVisibilityChanged:
     m_PersistentCalls:
       m_Calls:
@@ -1051,7 +1050,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_cellPrefab: {fileID: 11449630, guid: 783acf8d733c2e4498817145b129a571, type: 2}
   m_tableView: {fileID: 1552103548}
-  m_numRows: 30
+  m_numRows: 250
 --- !u!4 &1803694768
 Transform:
   m_ObjectHideFlags: 0
