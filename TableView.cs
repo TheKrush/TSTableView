@@ -53,12 +53,18 @@ namespace Tacticsoft
             return cell;
         }
 
+        public bool isEmpty { get; set; }
+
         /// <summary>
         /// Reload the table view. Manually call this if the data source changed in a way that alters the basic layout
         /// (number of rows changed, etc)
         /// </summary>
         public void ReloadData() {
             m_rowHeights = new float[m_dataSource.GetNumberOfRowsForTableView(this)];
+            this.isEmpty = m_rowHeights.Length == 0;
+            if (this.isEmpty) {
+                return;
+            }
             m_cumulativeRowHeights = new float[m_rowHeights.Length];
             m_cleanCumulativeIndex = -1;
 
@@ -386,6 +392,8 @@ namespace Tacticsoft
 
         #endregion
 
+
+        
     }
 
     internal static class RangeExtensions
