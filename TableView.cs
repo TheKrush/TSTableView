@@ -130,6 +130,9 @@ namespace Tacticsoft
                 return m_scrollY;
             }
             set {
+                if (this.isEmpty) {
+                    return;
+                }
                 value = Mathf.Clamp(value, 0, GetScrollYForRow(m_rowHeights.Length - 1, true));
                 if (m_scrollY != value) {
                     m_scrollY = value;
