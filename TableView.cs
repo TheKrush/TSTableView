@@ -63,6 +63,7 @@ namespace Tacticsoft
             m_rowHeights = new float[m_dataSource.GetNumberOfRowsForTableView(this)];
             this.isEmpty = m_rowHeights.Length == 0;
             if (this.isEmpty) {
+                ClearAllRows();
                 return;
             }
             m_cumulativeRowHeights = new float[m_rowHeights.Length];
@@ -191,11 +192,15 @@ namespace Tacticsoft
         }
 
         private void RecalculateVisibleRowsFromScratch() {
+            ClearAllRows();
+            SetInitialVisibleRows();
+        }
+
+        private void ClearAllRows() {
             while (m_visibleCells.Count > 0) {
                 HideRow(false);
             }
             m_visibleRowRange = new Range(0, 0);
-            SetInitialVisibleRows();
         }
 
         void Awake()
