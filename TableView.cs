@@ -261,10 +261,6 @@ namespace Tacticsoft
 
         private void AddRow(int row, bool atEnd)
         {
-            if (row > m_rowHeights.Length)
-            {
-                Debug.DebugBreak();
-            }
             TableViewCell newCell = m_dataSource.GetCellForRowInTableView(this, row);
             newCell.transform.SetParent(m_scrollRect.content, false);
 
@@ -307,7 +303,7 @@ namespace Tacticsoft
                 HideRow(true);
             }
             //Add rows that appeared on top
-            for (int i = newVisibleRows.from; i < m_visibleRowRange.from; i++) {
+            for (int i = m_visibleRowRange.from - 1; i >= newVisibleRows.from; i--) {
                 AddRow(i, false);
             }
             //Add rows that appeared on bottom
