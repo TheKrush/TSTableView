@@ -281,6 +281,12 @@ namespace Tacticsoft
 
         private void RefreshVisibleRows()
         {
+            m_requiresRefresh = false;
+
+            if (this.isEmpty) {
+                return;
+            }
+
             Range newVisibleRows = CalculateCurrentVisibleRowRange();
             int oldTo = m_visibleRowRange.Last();
             int newTo = newVisibleRows.Last();
@@ -288,7 +294,6 @@ namespace Tacticsoft
             if (newVisibleRows.from > oldTo || newTo < m_visibleRowRange.from) {
                 //We jumped to a completely different segment this frame, destroy all and recreate
 				RecalculateVisibleRowsFromScratch();
-                m_requiresRefresh = false;
                 return;
             }
 
@@ -312,7 +317,6 @@ namespace Tacticsoft
             }
             m_visibleRowRange = newVisibleRows;
             UpdatePaddingElements();
-            m_requiresRefresh = false;
         }
 
         private void UpdatePaddingElements() {
