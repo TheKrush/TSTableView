@@ -53,7 +53,7 @@ namespace Tacticsoft
             return cell;
         }
 
-        public bool isEmpty { get; set; }
+        public bool isEmpty { get; private set; }
 
         /// <summary>
         /// Reload the table view. Manually call this if the data source changed in a way that alters the basic layout
@@ -71,6 +71,9 @@ namespace Tacticsoft
 
             for (int i = 0; i < m_rowHeights.Length; i++) {
                 m_rowHeights[i] = m_dataSource.GetHeightForRowInTableView(this, i);
+                if (i > 0) {
+                    m_rowHeights[i] += m_verticalLayoutGroup.spacing;
+                }
             }
 
             m_scrollRect.content.sizeDelta = new Vector2(m_scrollRect.content.sizeDelta[0], 
@@ -107,6 +110,9 @@ namespace Tacticsoft
             if (m_visibleRowRange.Contains(row)) {
                 TableViewCell cell = GetCellAtRow(row);
                 cell.GetComponent<LayoutElement>().preferredHeight = m_rowHeights[row];
+                if (row > 0) {
+                    cell.GetComponent<LayoutElement>().preferredHeight -= m_verticalLayoutGroup.spacing;
+                }
             }
             float heightDelta = m_rowHeights[row] - oldHeight;
             m_scrollRect.content.sizeDelta = new Vector2(m_scrollRect.content.sizeDelta.x,
@@ -165,6 +171,7 @@ namespace Tacticsoft
         private ITableViewDataSource m_dataSource;
         private bool m_requiresReload;
 
+        private VerticalLayoutGroup m_verticalLayoutGroup;
         private ScrollRect m_scrollRect;
         private LayoutElement m_topPadding;
         private LayoutElement m_bottomPadding;
@@ -205,7 +212,9 @@ namespace Tacticsoft
 
         void Awake()
         {
+            isEmpty = true;
             m_scrollRect = GetComponent<ScrollRect>();
+            m_verticalLayoutGroup = GetComponentInChildren<VerticalLayoutGroup>();
             m_topPadding = CreateEmptyPaddingElement("TopPadding");
             m_topPadding.transform.SetParent(m_scrollRect.content, false);
             m_bottomPadding = CreateEmptyPaddingElement("Bottom");
@@ -269,6 +278,9 @@ namespace Tacticsoft
                 layoutElement = newCell.gameObject.AddComponent<LayoutElement>();
             }
             layoutElement.preferredHeight = m_rowHeights[row];
+            if (row > 0) {
+                layoutElement.preferredHeight -= m_verticalLayoutGroup.spacing;
+            }
             
             m_visibleCells[row] = newCell;
             if (atEnd) {
@@ -325,11 +337,13 @@ namespace Tacticsoft
                 hiddenElementsHeightSum += m_rowHeights[i];
             }
             m_topPadding.preferredHeight = hiddenElementsHeightSum;
+            m_topPadding.gameObject.SetActive(m_topPadding.preferredHeight > 0);
             for (int i = m_visibleRowRange.from; i <= m_visibleRowRange.Last(); i++) {
                 hiddenElementsHeightSum += m_rowHeights[i];
             }
             float bottomPaddingHeight = m_scrollRect.content.rect.height - hiddenElementsHeightSum;
-            m_bottomPadding.preferredHeight = bottomPaddingHeight;
+            m_bottomPadding.preferredHeight = bottomPaddingHeight - m_verticalLayoutGroup.spacing;
+            m_bottomPadding.gameObject.SetActive(m_bottomPadding.preferredHeight > 0);
         }
 
         private void HideRow(bool last)
