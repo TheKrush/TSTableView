@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine.Events;
@@ -60,6 +61,10 @@ namespace Tacticsoft
         /// (number of rows changed, etc)
         /// </summary>
         public void ReloadData() {
+            if (m_verticalLayoutGroup == null) {
+                Debug.LogError("Vertical Layout Group is null");
+                return;
+            }
             m_rowHeights = new float[m_dataSource.GetNumberOfRowsForTableView(this)];
             this.isEmpty = m_rowHeights.Length == 0;
             if (this.isEmpty) {
@@ -77,7 +82,7 @@ namespace Tacticsoft
             }
 
             m_scrollRect.content.sizeDelta = new Vector2(m_scrollRect.content.sizeDelta[0], 
-                GetCumulativeRowHeight(m_rowHeights.Length - 1));
+                GetCumulativeRowHeight(m_rowHeights.Length - 1) + m_verticalLayoutGroup.padding.vertical);
 
             RecalculateVisibleRowsFromScratch();
             m_requiresReload = false;
@@ -158,6 +163,7 @@ namespace Tacticsoft
         /// <returns>The y position to scroll to, can be used with scrollY property</returns>
         public float GetScrollYForRow(int row, bool above) {
             float retVal = GetCumulativeRowHeight(row);
+            retVal += m_verticalLayoutGroup.padding.top;
             if (above) {
                 retVal -= m_rowHeights[row];
             }
@@ -173,8 +179,8 @@ namespace Tacticsoft
 
         private VerticalLayoutGroup m_verticalLayoutGroup;
         private ScrollRect m_scrollRect;
-        private LayoutElement m_topPadding;
-        private LayoutElement m_bottomPadding;
+        private LayoutElement m_topContentPlaceHolder;
+        private LayoutElement m_bottomContentPlaceholder;
 
         private float[] m_rowHeights;
         //cumulative[i] = sum(rowHeights[j] for 0 <= j <= i)
@@ -215,10 +221,10 @@ namespace Tacticsoft
             isEmpty = true;
             m_scrollRect = GetComponent<ScrollRect>();
             m_verticalLayoutGroup = GetComponentInChildren<VerticalLayoutGroup>();
-            m_topPadding = CreateEmptyPaddingElement("TopPadding");
-            m_topPadding.transform.SetParent(m_scrollRect.content, false);
-            m_bottomPadding = CreateEmptyPaddingElement("Bottom");
-            m_bottomPadding.transform.SetParent(m_scrollRect.content, false);
+            m_topContentPlaceHolder = CreateEmptyContentPlaceHolderElement("TopContentPlaceHolder");
+            m_topContentPlaceHolder.transform.SetParent(m_scrollRect.content, false);
+            m_bottomContentPlaceholder = CreateEmptyContentPlaceHolderElement("BottomContentPlaceHolder");
+            m_bottomContentPlaceholder.transform.SetParent(m_scrollRect.content, false);
             m_visibleCells = new Dictionary<int, TableViewCell>();
 
             m_reusableCellContainer = new GameObject("ReusableCells", typeof(RectTransform)).GetComponent<RectTransform>();
@@ -250,10 +256,15 @@ namespace Tacticsoft
         
         private Range CalculateCurrentVisibleRowRange()
         {
-            float startY = m_scrollY;
-            float endY = m_scrollY + (this.transform as RectTransform).rect.height;
+
+            float startY = Math.Max(m_scrollY - m_verticalLayoutGroup.padding.top, 0);
+
+            var visibleTopPadding = Math.Max(m_verticalLayoutGroup.padding.top - m_scrollY, 0);
+            float endY = startY + (this.transform as RectTransform).rect.height - visibleTopPadding;
+
             int startIndex = FindIndexOfRowAtY(startY);
             int endIndex = FindIndexOfRowAtY(endY);
+            
             return new Range(startIndex, endIndex - startIndex + 1);
         }
 
@@ -333,17 +344,22 @@ namespace Tacticsoft
 
         private void UpdatePaddingElements() {
             float hiddenElementsHeightSum = 0;
+            
             for (int i = 0; i < m_visibleRowRange.from; i++) {
                 hiddenElementsHeightSum += m_rowHeights[i];
             }
-            m_topPadding.preferredHeight = hiddenElementsHeightSum;
-            m_topPadding.gameObject.SetActive(m_topPadding.preferredHeight > 0);
+            var topContentPlaceHolderHeight = hiddenElementsHeightSum;
+            m_topContentPlaceHolder.preferredHeight = topContentPlaceHolderHeight;
+            m_topContentPlaceHolder.gameObject.SetActive(m_topContentPlaceHolder.preferredHeight > 0);
             for (int i = m_visibleRowRange.from; i <= m_visibleRowRange.Last(); i++) {
                 hiddenElementsHeightSum += m_rowHeights[i];
             }
-            float bottomPaddingHeight = m_scrollRect.content.rect.height - hiddenElementsHeightSum;
-            m_bottomPadding.preferredHeight = bottomPaddingHeight - m_verticalLayoutGroup.spacing;
-            m_bottomPadding.gameObject.SetActive(m_bottomPadding.preferredHeight > 0);
+            float bottomContentPlaceHolderHeight = m_scrollRect.content.rect.height - hiddenElementsHeightSum;
+            bottomContentPlaceHolderHeight -= m_verticalLayoutGroup.padding.top;
+            bottomContentPlaceHolderHeight -= m_verticalLayoutGroup.padding.bottom;
+            m_bottomContentPlaceholder.preferredHeight = bottomContentPlaceHolderHeight - m_verticalLayoutGroup.spacing;
+            m_bottomContentPlaceholder.gameObject.SetActive(
+                m_bottomContentPlaceholder.preferredHeight > 0);
         }
 
         private void HideRow(bool last)
@@ -361,7 +377,7 @@ namespace Tacticsoft
             this.onCellVisibilityChanged.Invoke(row, false);
         }
 
-        private LayoutElement CreateEmptyPaddingElement(string name)
+        private LayoutElement CreateEmptyContentPlaceHolderElement(string name)
         {
             GameObject go = new GameObject(name, typeof(RectTransform), typeof(LayoutElement));
             LayoutElement le = go.GetComponent<LayoutElement>();
