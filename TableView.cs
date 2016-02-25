@@ -67,8 +67,8 @@ namespace Tacticsoft
             }
             m_rowHeights = new float[m_dataSource.GetNumberOfRowsForTableView(this)];
             this.isEmpty = m_rowHeights.Length == 0;
+            ClearAllRows();
             if (this.isEmpty) {
-                ClearAllRows();
                 return;
             }
             m_cumulativeRowHeights = new float[m_rowHeights.Length];
@@ -111,9 +111,12 @@ namespace Tacticsoft
         public void NotifyCellDimensionsChanged(int row) {
             float oldHeight = m_rowHeights[row];
             m_rowHeights[row] = m_dataSource.GetHeightForRowInTableView(this, row);
+            if (row > 0) {
+                m_rowHeights[row] += m_verticalLayoutGroup.spacing;
+            }
             m_cleanCumulativeIndex = Mathf.Min(m_cleanCumulativeIndex, row - 1);
-            if (m_visibleRowRange.Contains(row)) {
-                TableViewCell cell = GetCellAtRow(row);
+            TableViewCell cell = GetCellAtRow(row);
+            if (cell != null) {
                 cell.GetComponent<LayoutElement>().preferredHeight = m_rowHeights[row];
                 if (row > 0) {
                     cell.GetComponent<LayoutElement>().preferredHeight -= m_verticalLayoutGroup.spacing;
